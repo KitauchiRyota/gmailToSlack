@@ -50,14 +50,23 @@ function checkNewMailsAndNotifySlack() {
 
   // 各スレッドをループ処理
   threads.forEach(thread => {
-    Logger.log('type-thread:'+typeof(thread)); 
-    thread.getMessages().forEach(message => {
+    const threadLabels = thread.getLabels();
+    let isAlreadySent = false;
+    for(const l of threadLabels){
+      if(l.getName() === SENT_LABEL){
+        isAlreadySent =true;
+      }
+    }
+    if(!isAlreadySent){
+      thread.getMessages().forEach(message => {
       sendToSlack(message);
       Logger.log('type-message:'+typeof(message));
       Logger.log(message.getPlainBody()); // 動作確認用
+      // 送信済みラベルを追加
+      thread.addLabel(label);
     });
-    // 送信済みラベルを追加
-    thread.addLabel(label);
+    }
+    Logger.log('type-thread:'+typeof(thread)); 
   });
 }
 

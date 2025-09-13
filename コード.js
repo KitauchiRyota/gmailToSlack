@@ -86,7 +86,7 @@ function sendToSlack(message) {
   const body = message.getPlainBody(); // 本文
 
   // 受信日時を、yy/mm/dd形式に変換
-  const formattedDate = Utilities.formatDate(date, 'Asia/Tokyo', 'yyyy/MM/dd hh:mm');
+  const formattedDate = Utilities.formatDate(date, 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
 
   // Slackに送信するメッセージを作成
   const payload = {

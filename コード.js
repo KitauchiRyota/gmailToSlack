@@ -4,21 +4,15 @@
 // 設定項目
 // ================================================================
 
-// 条件1：この日付以降に受信したメールから検索
-// このプログラムを作成したのが、2025/09のため、過去分も全て含めるといろいろと面倒だったので、この設定にしています。
-const FIRST_DATE = '2025/09/01';
 
-// 条件2:監視したい送信元のメールアドレスのドメイン（@以降）
+// 条件1:監視したい送信元のメールアドレスのドメイン（@以降）
 // const TARGET_DOMAIN = 'manabi-web.net';
 const TARGET_DOMAIN = 'gmail.com';
 
-// 条件3：過去のプログラム実行時にSlackに送信したかを示すラベル
+// 条件2：過去のプログラム実行時にSlackに送信したかを示すラベル
 // Gmail側で手動でラベル作成後、ここにラベル名をコピペしてください。
 const SENT_LABEL = 'Slack送信済';
 
-
-// SlackのWebhook URL
-const SLACK_WEBHOOK_URL = webhook;
 
 // Slackに通知するときのアイコン絵文字
 const SLACK_ICON_EMOJI = ':e-mail:';
@@ -32,41 +26,53 @@ const SLACK_BOT_NAME = 'まなびWebメール配信通知Bot';
 
 /**
  * 下の1~3の条件に合致するメールを検索、ヒットすればSlackに通知し、"Slack送信済"ラベルを付ける関数
- * 1. FIRST_DATE 以降に受信
- * 2. @以降が TARGET_DOMAIN
+ * 1. プログラム実行時の7日以内に受信
+ * 2. 送信元のメールアドレスの@以降が TARGET_DOMAIN
  * 3. SENT_LABEL のラベルがついていない
  */
 function checkNewMailsAndNotifySlack() {
 
   // 検索クエリ
-  const query = `after:${FIRST_DATE} from:@${TARGET_DOMAIN} -label:${SENT_LABEL}`;
+  const query = `newer_than:7d from:@${TARGET_DOMAIN} -label:${SENT_LABEL}`;
   
   // クエリに一致するメールのスレッドを取得
   const threads = GmailApp.search(query);
-  Logger.log('type-threads:'+typeof(threads));
-  Logger.log(threads);
+  // Logger.log('type-threads:'+typeof(threads));
+  // Logger.log('threads:'+threads);
 
   const label = GmailApp.getUserLabelByName(SENT_LABEL);
 
   // 各スレッドをループ処理
   threads.forEach(thread => {
+
+    // // debug
+    // thread.getMessages().forEach(message => {
+    //   Logger.log(message.getPlainBody());
+    // })
+
     const threadLabels = thread.getLabels();
+    // Logger.log(threadLabels.length);
     let isAlreadySent = false;
+
+    // 上のクエリでは、既にラベルがついているスレッドに新たに返信があった場合もヒットするので、ここで改めてスレッドごとに確認（上のクエリ要らないかもね）
+    // スレッドが、SENT_LABELを持っていたら通知しない
+    // ※トリガーの間で新規メッセージ＋返信、と受信した場合は、スレッド内の全件が通知されます。
     for(const l of threadLabels){
+      // Logger.log('label:'+l.getName());
       if(l.getName() === SENT_LABEL){
         isAlreadySent =true;
       }
     }
     if(!isAlreadySent){
       thread.getMessages().forEach(message => {
-      sendToSlack(message);
-      Logger.log('type-message:'+typeof(message));
-      Logger.log(message.getPlainBody()); // 動作確認用
-      // 送信済みラベルを追加
-      thread.addLabel(label);
+        sendToSlack(message);
+        // Logger.log('type-message:'+typeof(message));
+        // Logger.log(message.getPlainBody());
+        // 送信済みラベルを追加
+        thread.addLabel(label);
     });
     }
-    Logger.log('type-thread:'+typeof(thread)); 
+    // Logger.log('type-thread:'+typeof(thread)); 
   });
 }
 
@@ -91,7 +97,7 @@ function sendToSlack(message) {
         "type": "section",
         "text": {
           "type": "mrkdwn",
-          "text": `${formattedDate}に、まなびWebで受講生に配信されたメールです`
+          "text": `${formattedDate}に、まなびWebで受講生に配信されたメールです。`
         }
       },
       {
@@ -109,7 +115,7 @@ function sendToSlack(message) {
         "text": {
           "type": "mrkdwn",
           "text": `*本文:*\n>${body.replace(/\n/g, '\n>').replace(/\s+$/, '')}`
-          // 本文を引用形式で表示するため、改行をSlackでの引用文字に変換
+          // メール本文を、Slack上では引用形式で表示するため、改行をSlackでの引用文字に変換
           // 本文末尾の無駄な空白文字を削除
         }
       }
@@ -123,5 +129,5 @@ function sendToSlack(message) {
   };
 
   // Webhook URLにPOSTリクエストを送信
-  UrlFetchApp.fetch(SLACK_WEBHOOK_URL, options);
+  UrlFetchApp.fetch(webhook, options);
 }
